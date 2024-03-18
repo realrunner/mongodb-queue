@@ -22,6 +22,7 @@ type MessageSchema = {
   ack?: string;
   tries: number;
   occurrences?: number;
+  priority?: number;
 };
 
 export type Message<T = unknown> = {
@@ -32,11 +33,13 @@ export type Message<T = unknown> = {
   payload: T;
   tries: number;
   occurrences?: number;
+  priority?: number;
 };
 
 type AddOptions<T> = {
   hashKey?: keyof T | T;
   delay?: number;
+  priority?: number;
 };
 
 export interface MongoDbQueue<T = unknown> {
@@ -63,12 +66,22 @@ class MongoDbQueueImpl implements MongoDbQueue {
   private _db: Db;
   private _name: string;
   private _visibility: number;
+  private _prioritize: boolean;
+  private _maxRetries?: number;
 
   private get collection() {
     return this._db.collection<MessageSchema>(this._name);
   }
 
-  constructor(db: Db, name: string, options: { visibility?: number } = {}) {
+  constructor(
+    db: Db,
+    name: string,
+    options: {
+      visibility?: number;
+      prioritize?: boolean;
+      maxRetries?: number;
+    } = {},
+  ) {
     if (!db) {
       throw new Error('Please provide a mongodb.MongoClient.db');
     }
@@ -79,10 +92,12 @@ class MongoDbQueueImpl implements MongoDbQueue {
     this._db = db;
     this._name = name;
     this._visibility = options.visibility || 30;
+    this._prioritize = options.prioritize || false;
+    this._maxRetries = options.maxRetries;
   }
 
   async createIndexes() {
-    await this.collection.createIndex({ deleted: 1, visible: 1 });
+    await this.collection.createIndex({ deleted: 1, visible: 1, priority: -1 });
     await this.collection.createIndex(
       { ack: 1 },
       { unique: true, sparse: true },
@@ -102,6 +117,7 @@ class MongoDbQueueImpl implements MongoDbQueue {
       visible: new Date(now + delay * 1000),
       payload,
       tries: 0,
+      priority: options?.priority,
     };
 
     if (hashKey === undefined) {
@@ -119,7 +135,7 @@ class MongoDbQueueImpl implements MongoDbQueue {
 
     if (typeof payload === 'object') {
       filter = {
-        [`payload.${hashKey}`]: payload[hashKey as keyof T],
+        [`payload.${String(hashKey)}`]: payload[hashKey as keyof T],
       };
     }
 
@@ -162,8 +178,13 @@ class MongoDbQueueImpl implements MongoDbQueue {
       },
     };
 
+    let sort: any = { _id: 1 };
+    if (this._prioritize) {
+      sort = { priority: -1, _id: 1 };
+    }
+
     const result = await this.collection.findOneAndUpdate(query, update, {
-      sort: { _id: 1 },
+      sort,
       returnDocument: 'after',
       includeResultMetadata: true,
     });
@@ -177,6 +198,14 @@ class MongoDbQueueImpl implements MongoDbQueue {
       throw new Error(`Queue.get(): Failed to update message`);
     }
 
+    if (this._maxRetries && message.tries >= this._maxRetries) {
+      await this.collection.findOneAndUpdate(
+        { _id: message._id },
+        { $set: { deleted: new Date(now), dead: true } },
+      );
+      return this.get(options);
+    }
+
     // convert to an external representation
     return {
       id: message._id.toHexString(),
@@ -186,6 +215,7 @@ class MongoDbQueueImpl implements MongoDbQueue {
       payload: message.payload as T,
       tries: message.tries,
       occurrences: message.occurrences ?? 1,
+      priority: message.priority,
     };
   }
 
@@ -279,7 +309,11 @@ class MongoDbQueueImpl implements MongoDbQueue {
 export default function mongoDbQueue<T = unknown>(
   db: Db,
   name: string,
-  options: { visibility?: number } = {},
+  options: {
+    visibility?: number;
+    prioritize?: boolean;
+    maxRetries?: number;
+  } = {},
 ): MongoDbQueue<T> {
   return new MongoDbQueueImpl(db, name, options);
 }

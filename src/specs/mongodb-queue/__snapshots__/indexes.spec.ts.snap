@@ -25,7 +25,7 @@ Object {
       1,
     ],
   ],
-  "deleted_1_visible_1": Array [
+  "deleted_1_visible_1_priority_-1": Array [
     Array [
       "deleted",
       1,
@@ -33,6 +33,10 @@ Object {
     Array [
       "visible",
       1,
+    ],
+    Array [
+      "priority",
+      -1,
     ],
   ],
 }

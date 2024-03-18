@@ -2,7 +2,6 @@
 
 [![NPM version][npm-image]][npm-url] ![Build Status][workflow-ci-url]
 [![license][license-image]][license-url] [![install size][size-image]][size-url]
-[![Dependency Status][daviddm-image]][daviddm-url]
 [![codecov][codecov-image]][codecov-url]
 
 A really light-weight way to create queues with a nice API if you're already
@@ -13,13 +12,13 @@ using MongoDB.
 Install using yarn:
 
 ```bash
-yarn add @openwar/mongodb-queue
+yarn add @realrunner/mongodb-queue
 ```
 
 Or npm:
 
 ```bash
-npm install @openwar/mongodb-queue
+npm install @realrunner/mongodb-queue
 ```
 
 Create a connection to your MongoDB database, and use it to create a queue
@@ -27,7 +26,7 @@ object:
 
 ```js
 import { MongoClient } from 'mongodb';
-import mongoDbQueue from '@openwar/mongodb-queue';
+import mongoDbQueue from '@realrunner/mongodb-queue';
 
 const url = 'mongodb://localhost:27017/';
 const client = new MongoClient(url, { useUnifiedTopology: true });
@@ -90,7 +89,7 @@ and a set of options. The MongoDB collection used is the same name as the name
 passed in:
 
 ```js
-import mongoDbQueue from '@openwar/mongodb-queue';
+import mongoDbQueue from '@realrunner/mongodb-queue';
 
 // an instance of a queue
 const queue = mongoDbQueue(db, 'queue');
@@ -101,6 +100,8 @@ To pass in options for the queue:
 ```js
 const resizeQueue = mongoDbQueue(db, 'resize-queue', {
   visibility: 30,
+  prioritize: true,
+  maxRetries: 3,
 });
 ```
 

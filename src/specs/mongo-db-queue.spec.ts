@@ -53,6 +53,35 @@ describe('mongodb-queue', () => {
     expect(id).toBeDefined();
   });
 
+  it('handles prioritized messages', async () => {
+    const queue = mongoDbQueue<string>(setupDb.db, queueName, {
+      prioritize: true,
+    });
+
+    const messageId1 = await queue.add('test message 1', { priority: 1 });
+    const messageId2 = await queue.add('test message 2', { priority: 2 });
+    const messageId3 = await queue.add('test message 3', { priority: 3 });
+
+    expect(messageId1).toBeDefined();
+    expect(messageId2).toBeDefined();
+
+    const message3 = await queue.get();
+    const message2 = await queue.get();
+    const message1 = await queue.get();
+
+    expect(message3?.id).toBe(messageId3);
+    expect(message2?.id).toBe(messageId2);
+    expect(message1?.id).toBe(messageId1);
+
+    // @ts-expect-error check is defined above
+    let id = await queue.ack(message1.ack);
+    expect(id).toEqual(messageId1);
+    id = await queue.ack(message2!.ack);
+    expect(id).toEqual(messageId2);
+    id = await queue.ack(message3!.ack);
+    expect(id).toEqual(messageId3);
+  });
+
   it('does not allow an message to be acknowledged twice', async () => {
     const queue = mongoDbQueue<string>(setupDb.db, queueName);
 
