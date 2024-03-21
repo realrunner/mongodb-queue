@@ -21,6 +21,8 @@ describe('mongodb-queue', () => {
     const queue = mongoDbQueue(setupDb.db, queueName);
 
     expect(await queue.get()).toBeUndefined();
+    expect(queue.name).toBe(queueName);
+    expect(queue.collection).toBeDefined();
   });
 
   it('handles single round trip message', async () => {

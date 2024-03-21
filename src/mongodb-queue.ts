@@ -7,7 +7,7 @@
  */
 
 import crypto from 'crypto';
-import type { Db, Filter, UpdateFilter } from 'mongodb';
+import type { Collection, Db, Filter, UpdateFilter } from 'mongodb';
 
 // some helper functions
 function id() {
@@ -60,6 +60,10 @@ export interface MongoDbQueue<T = unknown> {
   inFlight(): Promise<number>;
 
   done(): Promise<number>;
+
+  get name(): string;
+
+  get collection(): Collection<MessageSchema>;
 }
 
 class MongoDbQueueImpl implements MongoDbQueue {
@@ -69,8 +73,12 @@ class MongoDbQueueImpl implements MongoDbQueue {
   private _prioritize: boolean;
   private _maxRetries?: number;
 
-  private get collection() {
+  public get collection() {
     return this._db.collection<MessageSchema>(this._name);
+  }
+
+  public get name() {
+    return this._name;
   }
 
   constructor(
